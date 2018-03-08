@@ -1,19 +1,18 @@
-#define DO_SERVO
+//#define DO_SERVO
 #define SERVO_PIN 9
 #define SERVO_MIN 650
 #define SERVO_MAX 2390
 
-#define DO_LCD
 #define LCD_BAUD 19200
 #define ALERT_DISPLAY_DURATION_MS 500
 
-#define PC_INPUT_PIN 1
+#define PC_INPUT_BAUD 9600
+
 
 #define ALERT_NUMBER 0
 #define LEVEL_NUMBER 1
 
 int currentCommandPart = ALERT_NUMBER;
-
 byte currentCommandAlert = 0;
 byte currentCommandLevel = 0;
 
@@ -27,18 +26,16 @@ byte alertValues[256];
 long thisAlertDisplayStartTime = 0;
 byte currentAlertNumber = 0;
 
-void setup() {
-  Serial.begin(9600);
-  
-  
-  
-  #ifdef DO_LCD
-    Serial3.begin(LCD_BAUD);
-    delay(500);
-    backlightOn();
-    printString("Starting...");
-  #endif
+int maxLevel = 0;
 
+void setup() {
+  Serial.begin(PC_INPUT_BAUD);
+  
+  Serial3.begin(LCD_BAUD);
+  delay(500);
+  backlightOn();
+  printString("Starting...");
+  
   #ifdef DO_SERVO
     myservo.attach(SERVO_PIN);
     delay(1000);
@@ -49,12 +46,6 @@ void setup() {
 
   // Initialize array
   memset(alertValues, 0, sizeof(alertValues));
-
-  // Test some alert values
-  //alertValues[1] = (byte)111;
-  //alertValues[2] = (byte)222;
-  //alertValues[3] = (byte)123;
-
   clearLCD();
 }
 
@@ -76,12 +67,25 @@ void serialEvent(){
 void loop() {
   long currentTime = millis();
   displayAlerts(currentTime);
+  getMaxLevel();
+  //displayMaxLevel();
+  //delay(250);
 }
 
+void getMaxLevel(){
+  maxLevel = 0;
+  for(int i = 0; i < 256; ++i)
+    if(alertValues[i] > maxLevel)
+      maxLevel = alertValues[i];
+}
+
+void displayMaxLevel(){
+  clearLCD();
+  printString("Max Level: ");
+  appendInt(maxLevel);
+}
 
 void displayAlerts(long currentTime){
-  
-  #ifdef DO_LCD
   if((currentTime - thisAlertDisplayStartTime) > ALERT_DISPLAY_DURATION_MS){
     int startingAlertNumber = currentAlertNumber;
     backlightOn();
@@ -104,7 +108,6 @@ void displayAlerts(long currentTime){
     }
     
   }  
-  #endif
 }
 
 #ifdef DO_SERVO
@@ -120,49 +123,46 @@ void displayAlerts(long currentTime){
   }
 #endif
 
+void startFirstLine(){
+  Serial3.write(128);  
+}
 
-#ifdef DO_LCD
-  void startFirstLine(){
-    Serial3.write(128);  
-  }
+void startSecondLine(){
+  Serial3.write(148);
+}
 
-  void startSecondLine(){
-    Serial3.write(148);
-  }
-
-  void clearLCD(){
-    Serial3.write(12);  
-    delay(5);
-  }
+void clearLCD(){
+  Serial3.write(12);  
+  delay(5);
+}
   
-  void backlightOn(){
-    Serial3.write(17);
-  }
+void backlightOn(){
+  Serial3.write(17);
+}
 
-  void backlightOff(){
-    Serial3.write(18);
-  }
-  
-  void printString(String input){
-    clearLCD();
-    Serial3.print(input);
-  }
+void backlightOff(){
+  Serial3.write(18);
+}
 
-  void printAlert(byte alertId, byte alertValue){
-    startFirstLine();
-    appendString("Alert: ");
-    appendString(String(alertId));
-    startSecondLine();
-    appendString("Level: ");
-    appendString(String(alertValue));
-  }
+void printString(String input){
+  clearLCD();
+  Serial3.print(input);
+}
 
-  void appendInt(int value){
-    appendString(String(value));  
-  }
+void printAlert(byte alertId, byte alertValue){
+  clearLCD();
+  appendString("Alert: ");
+  appendString(String(alertId));
+  startSecondLine();
+  appendString("Level: ");
+  appendString(String(alertValue));
+}
 
-   void appendString(String input){
-    Serial3.print(input);
-   }
-#endif
+void appendInt(int value){
+  appendString(String(value));  
+}
+
+void appendString(String input){
+  Serial3.print(input);
+}
 
