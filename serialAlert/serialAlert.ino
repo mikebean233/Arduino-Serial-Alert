@@ -7,7 +7,15 @@
 #define LCD_BAUD 19200
 #define ALERT_DISPLAY_DURATION_MS 500
 
+#define PC_INPUT_PIN 1
 
+#define ALERT_NUMBER 0
+#define LEVEL_NUMBER 1
+
+int currentCommandPart = ALERT_NUMBER;
+
+byte currentCommandAlert = 0;
+byte currentCommandLevel = 0;
 
 #ifdef DO_SERVO
   #include<Servo.h>
@@ -15,17 +23,15 @@
   Servo myservo;
 #endif
 
-const int ODD = 0;
-const int EVEN = 1;
-int currentPosition = ODD;
 byte alertValues[256];
 long thisAlertDisplayStartTime = 0;
-
 byte currentAlertNumber = 0;
 
-
-
 void setup() {
+  Serial.begin(9600);
+  
+  
+  
   #ifdef DO_LCD
     Serial3.begin(LCD_BAUD);
     delay(500);
@@ -45,11 +51,26 @@ void setup() {
   memset(alertValues, 0, sizeof(alertValues));
 
   // Test some alert values
-  alertValues[1] = (byte)111;
-  alertValues[2] = (byte)222;
-  alertValues[3] = (byte)123;
+  //alertValues[1] = (byte)111;
+  //alertValues[2] = (byte)222;
+  //alertValues[3] = (byte)123;
 
   clearLCD();
+}
+
+void serialEvent(){
+  while(Serial.available()){
+    byte input = Serial.read();  
+  
+    if(currentCommandPart == ALERT_NUMBER){
+        currentCommandAlert = input;
+        currentCommandPart = LEVEL_NUMBER;
+    }else{
+      currentCommandLevel = input;
+      currentCommandPart = ALERT_NUMBER;
+      alertValues[currentCommandAlert] = currentCommandLevel;
+    }
+  }
 }
 
 void loop() {
