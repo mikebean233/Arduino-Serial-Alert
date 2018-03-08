@@ -1,28 +1,35 @@
-#include<Servo.h>
-
 #define DO_SERVO
 #define SERVO_PIN 9
 #define SERVO_MIN 650
 #define SERVO_MAX 2390
 
 #define DO_LCD
-#define LCD_BAUD 19200;
+#define LCD_BAUD 19200
+#define ALERT_DISPLAY_DURATION_MS 500
+
+
 
 #ifdef DO_SERVO
+  #include<Servo.h>
+
   Servo myservo;
 #endif
 
 const int ODD = 0;
 const int EVEN = 1;
 int currentPosition = ODD;
+byte alertValues[256];
+long thisAlertDisplayStartTime = 0;
+
+byte currentAlertNumber = 0;
+
+
 
 void setup() {
   #ifdef DO_LCD
     Serial3.begin(LCD_BAUD);
     delay(500);
-  
-    // backlight on 
-    Serial3.write(17);
+    backlightOn();
     printString("Starting...");
   #endif
 
@@ -32,33 +39,51 @@ void setup() {
     setServo(0);
   #endif
 
-  // set the servo
+  thisAlertDisplayStartTime = -1;
+
+  // Initialize array
+  memset(alertValues, 0, sizeof(alertValues));
+
+  // Test some alert values
+  alertValues[1] = (byte)111;
+  alertValues[2] = (byte)222;
+  alertValues[3] = (byte)123;
+
+  clearLCD();
 }
 
 void loop() {
-  
-  long time = millis() / 1000;
+  long currentTime = millis();
+  displayAlerts(currentTime);
+}
 
-  if(time % 2 == 0 && currentPosition != EVEN){
-    #ifdef DO_LCD
-      printString("Even  ");
-    #endif
+
+void displayAlerts(long currentTime){
+  
+  #ifdef DO_LCD
+  if((currentTime - thisAlertDisplayStartTime) > ALERT_DISPLAY_DURATION_MS){
+    int startingAlertNumber = currentAlertNumber;
+    backlightOn();
     
-    #ifdef DO_SERVO
-      setServo(0);
-    #endif
-    currentPosition = EVEN;
-  }
-  else if(time % 2 != 0 && currentPosition != ODD){
-    #ifdef DO_LCD
-      printString("Odd  ");
-    #endif
+    int alertId = (currentAlertNumber + 1) % 256;
+    for(; alertValues[alertId] == 0 && alertId != currentAlertNumber; alertId = (alertId + 1) % 256)
+    {/*Do nothing*/}
     
-    #ifdef DO_SERVO
-      setServo(100);
-    #endif
-    currentPosition = ODD;
-  }
+    if(alertId == startingAlertNumber && alertValues[alertId] == 0){
+      // We didn't find an alert to display
+      backlightOff();
+      clearLCD();
+      thisAlertDisplayStartTime = -1;
+    } else {
+      // We did find an alert to display
+      backlightOn();
+      printAlert(alertId, alertValues[alertId]);  
+      thisAlertDisplayStartTime = currentTime;
+      currentAlertNumber = alertId;
+    }
+    
+  }  
+  #endif
 }
 
 #ifdef DO_SERVO
@@ -70,21 +95,46 @@ void loop() {
     if(value > 100) value = 100;
 
     int outValue = SERVO_MIN + (value / 100) * (SERVO_MAX - SERVO_MIN);
-    appendInt(outValue);
-    
     myservo.writeMicroseconds(outValue);
-
   }
 #endif
 
 
 #ifdef DO_LCD
+  void startFirstLine(){
+    Serial3.write(128);  
+  }
+
+  void startSecondLine(){
+    Serial3.write(148);
+  }
+
+  void clearLCD(){
+    Serial3.write(12);  
+    delay(5);
+  }
+  
+  void backlightOn(){
+    Serial3.write(17);
+  }
+
+  void backlightOff(){
+    Serial3.write(18);
+  }
   
   void printString(String input){
-    // clear
-    Serial3.write(12);
+    clearLCD();
     Serial3.print(input);
-   }
+  }
+
+  void printAlert(byte alertId, byte alertValue){
+    startFirstLine();
+    appendString("Alert: ");
+    appendString(String(alertId));
+    startSecondLine();
+    appendString("Level: ");
+    appendString(String(alertValue));
+  }
 
   void appendInt(int value){
     appendString(String(value));  
