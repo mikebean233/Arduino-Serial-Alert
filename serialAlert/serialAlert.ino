@@ -4,7 +4,7 @@
 #define SERVO_MAX 2390
 
 #define LCD_BAUD 19200
-#define ALERT_DISPLAY_DURATION_MS 500
+#define ALERT_DISPLAY_DURATION_MS 750
 
 #define PC_INPUT_BAUD 9600
 
@@ -52,23 +52,10 @@ void setup() {
 }
 
 void serialEvent(){
-  while(Serial.available()){
-    byte input = Serial.read();  
-  
-    if(currentCommandPart == ALERT_NUMBER){
-        currentCommandAlert = input;
-        currentCommandPart = LEVEL_NUMBER;
-    }else{
-      currentCommandLevel = input;
-      currentCommandPart = ALERT_NUMBER;
-      alertValues[currentCommandAlert] = currentCommandLevel;
-
-      // If our currenctly watched alert gets changed, refresh the screen
-      if(currentCommandAlert == currentAlertNumber){
-        thisAlertDisplayStartTime = -1;
-        displayAlerts(millis());
-      }
-    }    
+  while(Serial.available() >= 2){
+    byte thisAlert = Serial.read();  
+    byte thisLevel = Serial.read();
+    alertValues[thisAlert] = thisLevel;
   }
 }
 
@@ -105,7 +92,7 @@ void displayMaxLevel(){
 }
 
 void displayAlerts(long currentTime){
-  if((currentTime - thisAlertDisplayStartTime) > ALERT_DISPLAY_DURATION_MS || thisAlertDisplayStartTime == -1){
+  if((currentTime - thisAlertDisplayStartTime) > ALERT_DISPLAY_DURATION_MS){
     int startingAlertNumber = currentAlertNumber;
     backlightOn();
     
@@ -124,8 +111,6 @@ void displayAlerts(long currentTime){
       printAlert(alertId, alertValues[alertId]);  
       thisAlertDisplayStartTime = currentTime;
       currentAlertNumber = alertId;
-      //thisAlertDisplayStartTime = -1;
-      //displayAlerts(currentTime);
     }
     
   }  
