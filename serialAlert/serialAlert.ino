@@ -27,6 +27,8 @@ long thisAlertDisplayStartTime = 0;
 byte currentAlertNumber = 0;
 
 int maxLevel = 0;
+//                       0    1    2    3
+int levelSchedule[] = {0,  25,  50,  75, 100};
 
 void setup() {
   Serial.begin(PC_INPUT_BAUD);
@@ -35,7 +37,7 @@ void setup() {
   delay(500);
   backlightOn();
   printString("Starting...");
-  
+  delay(1000);
   #ifdef DO_SERVO
     myservo.attach(SERVO_PIN);
     delay(1000);
@@ -60,16 +62,33 @@ void serialEvent(){
       currentCommandLevel = input;
       currentCommandPart = ALERT_NUMBER;
       alertValues[currentCommandAlert] = currentCommandLevel;
-    }
+
+      // If our currenctly watched alert gets changed, refresh the screen
+      if(currentCommandAlert == currentAlertNumber){
+        thisAlertDisplayStartTime = -1;
+        displayAlerts(millis());
+      }
+    }    
   }
 }
 
 void loop() {
   long currentTime = millis();
   displayAlerts(currentTime);
-  getMaxLevel();
+  //getMaxLevel();
   //displayMaxLevel();
   //delay(250);
+}
+
+int getSimpleLevel(int level){
+  int length = sizeof(levelSchedule) / sizeof(int);
+  for(int i = 0; i < length; ++i){
+      if(i + 1 == length)
+        return i;
+       else if(levelSchedule[i] <= level && level < levelSchedule[i + 1])
+          return i;  
+  }
+  return 0;
 }
 
 void getMaxLevel(){
@@ -86,7 +105,7 @@ void displayMaxLevel(){
 }
 
 void displayAlerts(long currentTime){
-  if((currentTime - thisAlertDisplayStartTime) > ALERT_DISPLAY_DURATION_MS){
+  if((currentTime - thisAlertDisplayStartTime) > ALERT_DISPLAY_DURATION_MS || thisAlertDisplayStartTime == -1){
     int startingAlertNumber = currentAlertNumber;
     backlightOn();
     
@@ -105,6 +124,8 @@ void displayAlerts(long currentTime){
       printAlert(alertId, alertValues[alertId]);  
       thisAlertDisplayStartTime = currentTime;
       currentAlertNumber = alertId;
+      //thisAlertDisplayStartTime = -1;
+      //displayAlerts(currentTime);
     }
     
   }  
