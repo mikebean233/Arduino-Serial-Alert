@@ -8,14 +8,6 @@
 
 #define PC_INPUT_BAUD 9600
 
-
-#define ALERT_NUMBER 0
-#define LEVEL_NUMBER 1
-
-int currentCommandPart = ALERT_NUMBER;
-byte currentCommandAlert = 0;
-byte currentCommandLevel = 0;
-
 #ifdef DO_SERVO
   #include<Servo.h>
 
